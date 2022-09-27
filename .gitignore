@@ -1,0 +1,10 @@
+
+*.log
+*.exe
+*.out
+*.txt
+*.depend
+/bin/**
+/obj/**
+
+
