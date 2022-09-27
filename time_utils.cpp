@@ -2,11 +2,11 @@
 #include <time.h>
 
 void fprint_mm_ss(FILE* file, time_t time){
-    fprintf(file, "%02d:%02d", time/60, time%60);
+    fprintf(file, "%02Id:%02Id", time/60, time%60);
 }
 
 void fprint_hh_mm_ss(FILE* file, time_t time){
-    fprintf(file, "%02d:%02d:%02d", (time/3600), (time/60)%60 , (time%60));
+    fprintf(file, "%02Id:%02Id:%02Id", (time/3600), (time/60)%60 , (time%60));
 }
 
 void fprint_time_date_short(FILE* file, time_t time){

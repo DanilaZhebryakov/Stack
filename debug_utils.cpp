@@ -26,14 +26,14 @@ bool checkLCanary(const void* ptr){
 }
 
 bool checkRCanary(const void* ptr, size_t len){
-    return ((canary_t*)(ptr+len))[0] == CANARY_R;
+    return ((canary_t*)((char*)ptr+len))[0] == CANARY_R;
 }
 
 hash_t gnuHash(const void* begin_ptr, const void* end_ptr){
     hash_t hash = HASH_DEFAULT;
     while(begin_ptr < end_ptr){
         hash = (hash * 33) + (*(uint8_t*)begin_ptr);
-        begin_ptr++;
+        begin_ptr = (char*)begin_ptr + 1;
     }
     return hash;
 }
