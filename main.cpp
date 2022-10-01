@@ -1,3 +1,5 @@
+#define NDEBUG
+
 #include <stdio.h>
 #include "Stack.h"
 
@@ -14,6 +16,7 @@ int main()
     for (int i = 0; i < 21; i++){
         stackPush(&stk, 56+i);
     }
+    //stk.size -= 1;
     stackDump(&stk);
 
     for (int i = 0; i < 21; i++){

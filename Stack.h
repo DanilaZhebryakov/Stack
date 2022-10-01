@@ -29,7 +29,14 @@ enum stackError_t{
     STACK_OP_ERROR          = 1 << 25
 };
 
-//#define NO_UNSAFE_PRINT
+#ifdef NDEBUG
+    #define STACK_NO_PROTECT
+#endif
+
+#ifdef STACK_NO_PROTECT
+    #define STACK_NO_HASH
+    #define STACK_NO_CANARY
+#endif
 
 #ifndef ELEM_T
     #define ELEM_T int
@@ -52,39 +59,58 @@ enum stackError_t{
 #endif
 
 
-#define stackCheckRet(__stk, ...)  \
-if(stackError(__stk)){             \
-    error_log("%s", "Stack error");\
-    stackDump(__stk);              \
-    return __VA_ARGS__;            \
-}
+#ifndef STACK_NO_PROTECT
+    #define stackCheckRet(__stk, ...)  \
+        if(stackError(__stk)){             \
+            error_log("%s", "Stack error");\
+            stackDump(__stk);              \
+            return __VA_ARGS__;            \
+        }
+#else
+    #define stackCheckRet(__stk, ...) ;
+#endif
 
-#define stackCheckRetPtr(__stk, __errptr, ...)  \
-if(stackError(__stk)){                \
-    error_log("%s", "Stack error");   \
-    stackDump(__stk);                 \
-    if(__errptr)                      \
-        *__errptr = stackError(__stk);\
-    return __VA_ARGS__;               \
-}
+#ifndef STACK_NO_PROTECT
+    #define stackCheckRetPtr(__stk, __errptr, ...)  \
+        if(stackError(__stk)){                \
+            error_log("%s", "Stack error");   \
+            stackDump(__stk);                 \
+            if(__errptr)                      \
+                *__errptr = stackError(__stk);\
+            return __VA_ARGS__;               \
+        }
+#else
+    #define stackCheckRetPtr(__stk, __errptr, ...)  ;
+#endif
 
 struct Stack{
-    canary_t leftcan;
+    #ifndef STACK_NO_CANARY
+        canary_t leftcan;
+    #endif
 
     ELEM_T *data;
     size_t size;
     size_t capacity;
 
-    VarInfo info;
-    hash_t data_hash;
-
-    hash_t struct_hash;
-    canary_t rightcan;
+    #ifndef STACK_NO_PROTECT
+        VarInfo info;
+    #endif
+    #ifndef STACK_NO_HASH
+        hash_t data_hash;
+        hash_t struct_hash;
+    #endif
+    #ifndef STACK_NO_CANARY
+        canary_t rightcan;
+    #endif
 };
 
-static const size_t STACK_DATA_BEGIN_OFFSET  =   sizeof(canary_t);
-static const size_t STACK_DATA_SIZE_OFFSET   = 2*sizeof(canary_t);
-
+#ifndef STACK_NO_CANARY
+    static const size_t STACK_DATA_BEGIN_OFFSET  =   sizeof(canary_t);
+    static const size_t STACK_DATA_SIZE_OFFSET   = 2*sizeof(canary_t);
+#else
+    static const size_t STACK_DATA_BEGIN_OFFSET  = 0;
+    static const size_t STACK_DATA_SIZE_OFFSET   = 0;
+#endif
 inline static void* stackDataMemBegin(const Stack* stk){
     assert_log(stk != nullptr);
     return ((void*)stk->data)-STACK_DATA_BEGIN_OFFSET;
@@ -96,55 +122,61 @@ inline static size_t stackDataMemSize(const Stack* stk){
 
 
 
-static hash_t stackGetDataHash(const Stack* stk){
-    return gnuHash(stk->data, stk->data + stk->capacity);
-}
-static hash_t stackGetStructHash(const Stack* stk){
-    return gnuHash((&(stk->leftcan))+1, &(stk->struct_hash));
-}
-static stackError_t stackUpdHashes(Stack* stk){
-    if (stk == nullptr)
-        return STACK_NULL;
-    if (IsBadWritePtr(stk, sizeof(stk)))
-        return STACK_BAD;
-    if (stk->data == nullptr && stk->capacity != 0)
-        return STACK_DATA_NULL;
-    if (stk->data == DESTRUCT_PTR)
-        return STACK_DATA_NULL;
-    if (stk->size > stk->capacity)
-        return STACK_SIZE_CAP_BAD;
-
-    stk->data_hash   = stackGetDataHash  (stk);
-    stk->struct_hash = stackGetStructHash(stk);
-
-    return STACK_NOERROR;
-}
-
-static bool stackCtor_(Stack* stk){
-    if (IsBadWritePtr(stk, sizeof(stk))){
-        error_log("Bad pointer passed to constructor: %p", stk)
-        return false;
+#ifndef STACK_NO_HASH
+    static hash_t stackGetDataHash(const Stack* stk){
+        return gnuHash(stk->data, stk->data + stk->capacity);
     }
+    static hash_t stackGetStructHash(const Stack* stk){
+        return gnuHash(&(stk->data), &(stk->struct_hash));
+    }
+
+    static stackError_t stackUpdHashes(Stack* stk){
+        if (stk == nullptr)
+            return STACK_NULL;
+        if (IsBadWritePtr(stk, sizeof(stk)))
+            return STACK_BAD;
+        if (stk->data == nullptr && stk->capacity != 0)
+            return STACK_DATA_NULL;
+        if (stk->data == DESTRUCT_PTR)
+            return STACK_DATA_NULL;
+        if (stk->size > stk->capacity)
+            return STACK_SIZE_CAP_BAD;
+
+        stk->data_hash   = stackGetDataHash  (stk);
+        stk->struct_hash = stackGetStructHash(stk);
+
+        return STACK_NOERROR;
+    }
+#else
+    static stackError_t stackUpdHashes(Stack* stk){
+        return STACK_NOERROR;
+    }
+#endif
+
+static void stackCtor_(Stack* stk){
     stk->data = nullptr;
     stk->size = 0;
     stk->capacity = 0;
 
-    stk->leftcan  = CANARY_L;
-    stk->rightcan = CANARY_R;
-    return true;
+    #ifndef STACK_NO_CANARY
+        stk->leftcan  = CANARY_L;
+        stk->rightcan = CANARY_R;
+    #endif
 }
-
-#define stackCtor(__stk)    \
-    if (__stk != nullptr){  \
-        stackCtor_(__stk);      \
-        (__stk)->info = varInfoInit(__stk); \
-        stackUpdHashes(__stk);  \
-    }                       \
-    else {                  \
-        error_log("%s", "nullptr passed to constructor\n");\
-    }
-
-
+#ifndef STACK_NO_PROTECT
+    #define stackCtor(__stk)    \
+        if (!IsBadWritePtr(__stk, sizeof(__stk))){  \
+            stackCtor_(__stk);      \
+            (__stk)->info = varInfoInit(__stk); \
+            stackUpdHashes(__stk);  \
+        }                       \
+        else {                  \
+            error_log("%s", "bad ptr passed to constructor\n");\
+        }
+#else
+    #define stackCtor(__stk)    \
+            stackCtor_(__stk);
+#endif
 static stackError_t stackError(const Stack* stk){
     if (stk == nullptr)
         return STACK_NULL;
@@ -167,34 +199,47 @@ static stackError_t stackError(const Stack* stk){
     if (stk->size > stk->capacity)
         err |= STACK_SIZE_CAP_BAD;
 
+    #ifndef STACK_NO_CANARY
+        if (stk->leftcan != CANARY_L)
+            err |= STACK_CANARY_L_BAD;
+        if (stk->rightcan != CANARY_R)
+            err |= STACK_CANARY_R_BAD;
+    #endif
 
-    if (stk->leftcan != CANARY_L)
-        err |= STACK_CANARY_L_BAD;
-    if (stk->rightcan != CANARY_R)
-        err |= STACK_CANARY_R_BAD;
-
-    if (stk->struct_hash     != stackGetStructHash(stk))
-        err |= STACK_HASH_BAD;
-
+    #ifndef STACK_NO_HASH
+        if (stk->struct_hash     != stackGetStructHash(stk))
+            err |= STACK_HASH_BAD;
+    #endif
 
     if ((err & (STACK_DATA_BAD | STACK_HASH_BAD)) || stk->data == nullptr){
-        if(stk->data_hash != HASH_DEFAULT)
-            err |= STACK_DATA_HASH_BAD;
-
+        #ifndef STACK_NO_HASH
+            if(stk->data_hash != HASH_DEFAULT)
+                err |= STACK_DATA_HASH_BAD;
+        #endif
         return (stackError_t)err;
     }
 
-    if (!checkLCanary(stk->data))
-        err |= STACK_DATA_CANARY_L_BAD;
-    if (!checkRCanary(stk->data, stk->capacity * sizeof(ELEM_T)))
-        err |= STACK_DATA_CANARY_R_BAD;
+    #ifndef STACK_NO_CANARY
+        if (!checkLCanary(stk->data))
+            err |= STACK_DATA_CANARY_L_BAD;
+        if (!checkRCanary(stk->data, stk->capacity * sizeof(ELEM_T)))
+            err |= STACK_DATA_CANARY_R_BAD;
+    #endif
 
-
-    if (stk->data_hash   != stackGetDataHash(stk))
-        err |= STACK_DATA_HASH_BAD;
-
+    #ifndef STACK_NO_HASH
+        if (stk->data_hash   != stackGetDataHash(stk))
+            err |= STACK_DATA_HASH_BAD;
+    #endif
 
     return (stackError_t)err;
+}
+
+inline static stackError_t stackError_dbg(Stack* stk){
+    #ifndef STACK_NO_PROTECT
+        return stackError(stk);
+    #else
+        return STACK_NOERROR;
+    #endif
 }
 
 
@@ -220,23 +265,23 @@ static void stackDump(const Stack* stk){
         return;
     }
 
-
+    #ifndef STACK_NO_PROTECT
     printVarInfo_log(&(stk->info));
+    #endif
 
-    if (err & STACK_CANARY_L_BAD){
-        printf_log("      (BAD)  Struct L canary BAD! Value: %p\n", stk->leftcan);
-    }
-    if (err & STACK_CANARY_R_BAD){
-        printf_log("      (BAD)  Struct R canary BAD! Value: %p\n", stk->rightcan);
-    }
-
-    if (err & STACK_HASH_BAD){
-        printf_log("      (BAD)  Structure hash invalid. Written %p calculated %p\n", stk->struct_hash, stackGetStructHash(stk));
-        #ifdef NO_UNSAFE_PRINT
-        return;
-        #endif
-    }
-
+    #ifndef STACK_NO_HASH
+        if (err & STACK_HASH_BAD){
+            printf_log("      (BAD)  Struct hash invalid. Written %p calculated %p\n", stk->struct_hash  , stackGetStructHash(stk));
+        }
+    #endif
+    #ifndef STACK_NO_CANARY
+        if (err & STACK_CANARY_L_BAD){
+            printf_log("      (BAD)  Struct L canary BAD! Value: %p\n", stk->leftcan);
+        }
+        if (err & STACK_CANARY_R_BAD){
+            printf_log("      (BAD)  Struct R canary BAD! Value: %p\n", stk->rightcan);
+        }
+    #endif
 
     if (stk->data == nullptr){
         printf_log("      (bad?) Stack data poiner is null\n\n");
@@ -252,18 +297,20 @@ static void stackDump(const Stack* stk){
         printf_log("      (BAD)  Stack size is larger than capacity\n");
     }
 
-
-    hash_t data_hash = stackGetDataHash(stk);
-    if (data_hash != stk->data_hash){
-        printf_log("      (BAD)  Data hash invalid. Written %p calculated %p\n", stk->data_hash  , data_hash);
-    }
-    if(!checkLCanary(stk->data)){
-        printf_log("      (BAD)  Data L canary BAD! Value: %p\n", ((canary_t*)stk->data)[-1]);
-    }
-    if(!checkRCanary(stk->data, stk->capacity * sizeof(ELEM_T))){
-        printf_log("      (BAD)  Data R canary BAD! Value: %p\n",*((canary_t*)stk->data + stk->capacity));
-    }
-
+    #ifndef STACK_NO_HASH
+        hash_t data_hash = stackGetDataHash(stk);
+        if (data_hash != stk->data_hash){
+            printf_log("      (BAD)  Data hash invalid. Written %p calculated %p\n", stk->data_hash  , data_hash);
+        }
+    #endif
+    #ifndef STACK_NO_CANARY
+        if(!checkLCanary(stk->data)){
+            printf_log("      (BAD)  Data L canary BAD! Value: %p\n", ((canary_t*)stk->data)[-1]);
+        }
+        if(!checkRCanary(stk->data, stk->capacity * sizeof(ELEM_T))){
+            printf_log("      (BAD)  Data R canary BAD! Value: %p\n",*((canary_t*)stk->data + stk->capacity));
+        }
+    #endif
     printf_log("\n");
 
     for (int i = 0; i < stk->capacity; i++){
@@ -279,7 +326,7 @@ static void stackDump(const Stack* stk){
 }
 
 static stackError_t stackDtor(Stack* stk){
-    stackCheckRet(stk, stackError(stk));
+    stackCheckRet(stk, stackError_dbg(stk));
 
     for (int i = 0; i < stk->capacity; i++){
         stk->data[i] = BAD_ELEM;
@@ -290,13 +337,16 @@ static stackError_t stackDtor(Stack* stk){
     stk->data = DESTRUCT_PTR;
     stk->size = -1;
     stk->capacity = -1;
+    #ifndef STACK_NO_PROTECT
     (stk->info).status = VARSTATUS_DEAD;
+    #endif
 }
 
 
 
 static stackError_t stackResize(Stack* stk, size_t new_capacity){
-    int err = stackError(stk);
+
+    int err = stackError_dbg(stk);
     err &= ~(STACK_HASH_BAD | STACK_DATA_HASH_BAD);
     if (err)
         return (stackError_t)err;
@@ -324,19 +374,25 @@ static stackError_t stackResize(Stack* stk, size_t new_capacity){
     }
     stk->data = new_mem;
 
-    *((canary_t*)(stk->data + new_capacity)) = CANARY_R;
-    *((canary_t*)(stk->data)-1)              = CANARY_L;
+    #ifndef STACK_NO_CANARY
+        *((canary_t*)(stk->data + new_capacity)) = CANARY_R;
+        *((canary_t*)(stk->data)-1)              = CANARY_L;
+    #endif
 
-    for (int i = stk->capacity; i < new_capacity; i++){
-        stk->data[i] = BAD_ELEM;
-    }
+    #ifndef STACK_NO_PROTECT
+        for (int i = stk->capacity; i < new_capacity; i++){
+            stk->data[i] = BAD_ELEM;
+        }
+    #endif
     stk->capacity = new_capacity;
     return STACK_NOERROR;
 }
 
 static stackError_t stackPush(Stack* stk, ELEM_T elem){
-    stackCheckRet(stk, stackError(stk));
+    stackCheckRet(stk, stackError_dbg(stk));
+    #ifndef STACK_NO_PROTECT
     (stk->info).status = VARSTATUS_NORMAL;
+    #endif
 
     if (stk->size == stk->capacity){
         stackError_t err = stackResize(stk, (stk->capacity == 0)? STACK_MIN_SIZE : stk->capacity*2);
@@ -346,7 +402,8 @@ static stackError_t stackPush(Stack* stk, ELEM_T elem){
 
     stk->data[stk->size++] = elem;
     stackUpdHashes(stk);
-    return stackError(stk);
+
+    return stackError_dbg(stk);
 }
 
 static ELEM_T stackTop(Stack* stk, stackError_t *err_ptr = nullptr){
@@ -362,7 +419,6 @@ static ELEM_T stackTop(Stack* stk, stackError_t *err_ptr = nullptr){
 
 static ELEM_T stackPop(Stack* stk, stackError_t *err_ptr = nullptr){
     stackCheckRetPtr(stk, err_ptr, BAD_ELEM);
-    (stk->info).status = VARSTATUS_NORMAL;
 
     if (stk->size == 0){
         if (err_ptr)
@@ -372,7 +428,9 @@ static ELEM_T stackPop(Stack* stk, stackError_t *err_ptr = nullptr){
 
     ELEM_T ret = stk->data[--stk->size];
 
-    stk->data[stk->size] = BAD_ELEM;
+    #ifndef STACK_NO_PROTECT
+        stk->data[stk->size] = BAD_ELEM;
+    #endif
 
     if (stk->size * 2 < stk->capacity && stk->capacity > 2*STACK_MIN_SIZE){
         stackError_t err = stackResize(stk, (stk->capacity == 0)? STACK_MIN_SIZE : stk->size*2);
