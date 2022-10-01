@@ -344,7 +344,7 @@ static stackError_t stackDtor(Stack* stk){
 
 
 
-static stackError_t stackResize(Stack* stk, size_t new_capacity){
+static stackError_t stackResize_(Stack* stk, size_t new_capacity){
 
     int err = stackError_dbg(stk);
     err &= ~(STACK_HASH_BAD | STACK_DATA_HASH_BAD);
@@ -388,6 +388,15 @@ static stackError_t stackResize(Stack* stk, size_t new_capacity){
     return STACK_NOERROR;
 }
 
+static stackError_t stackResize(Stack* stk, size_t new_capacity){
+    stackError_t err = stackResize_(stk, new_capacity);
+    if(err == 0)
+        stackUpdHashes(stk);
+    return err;
+}
+
+
+
 static stackError_t stackPush(Stack* stk, ELEM_T elem){
     stackCheckRet(stk, stackError_dbg(stk));
     #ifndef STACK_NO_PROTECT
@@ -395,7 +404,7 @@ static stackError_t stackPush(Stack* stk, ELEM_T elem){
     #endif
 
     if (stk->size == stk->capacity){
-        stackError_t err = stackResize(stk, (stk->capacity == 0)? STACK_MIN_SIZE : stk->capacity*2);
+        stackError_t err = stackResize_(stk, (stk->capacity == 0)? STACK_MIN_SIZE : stk->capacity*2);
         if (err != STACK_NOERROR)
             return err;
     }
@@ -433,7 +442,7 @@ static ELEM_T stackPop(Stack* stk, stackError_t *err_ptr = nullptr){
     #endif
 
     if (stk->size * 2 < stk->capacity && stk->capacity > 2*STACK_MIN_SIZE){
-        stackError_t err = stackResize(stk, (stk->capacity == 0)? STACK_MIN_SIZE : stk->size*2);
+        stackError_t err = stackResize_(stk, (stk->capacity == 0)? STACK_MIN_SIZE : stk->size*2);
         if (err != STACK_NOERROR){
             if (err_ptr)
                 *err_ptr = err;

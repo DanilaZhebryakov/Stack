@@ -10,13 +10,13 @@ int main()
     Stack stk;
     stackCtor(&stk);
 
-
+    stackResize(&stk, 30);
     stackDump(&stk);
 
     for (int i = 0; i < 21; i++){
         stackPush(&stk, 56+i);
     }
-    //stk.size -= 1;
+
     stackDump(&stk);
 
     for (int i = 0; i < 21; i++){
