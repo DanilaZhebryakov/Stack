@@ -24,6 +24,9 @@
 
     void debug_log(const char* format, ...);
 
+    #ifdef error_log
+        #error redefinition of internal macro error_log perror_log
+    #endif
     #define perror_log(errmsg)  {    \
         setConsoleColor(stderr, (consoleColor)(COLOR_RED | COLOR_INTENSE), COLOR_BLACK); \
         fprint_time_nodate(_logfile, time(nullptr));                                     \
@@ -34,7 +37,9 @@
         setConsoleColor(stderr, (consoleColor)(COLOR_WHITE | COLOR_INTENSE), COLOR_BLACK);\
     }
 
-
+    #ifdef error_log
+        #error redefinition of internal macro error_log
+    #endif
     #define error_log(format, ...) {                                                     \
         setConsoleColor(stderr, (consoleColor)(COLOR_RED | COLOR_INTENSE), COLOR_BLACK);   \
         fprint_time_nodate(_logfile, time(nullptr));                                       \
@@ -47,6 +52,9 @@
         setConsoleColor(stderr, COLOR_DEFAULTT, COLOR_BLACK);      \
     }
 
+    #ifdef assert_log
+        #error redefinition of internal macro assert_log
+    #endif
     #ifndef NDEBUG
         #define assert_log(cond)                                  \
         if(!(cond)){                                                 \
@@ -65,6 +73,9 @@
         #define assert_log(cond) ;
     #endif
 
+    #ifdef $log
+        #error redefinition of internal macro $log
+    #endif
     #define $log(operation) {                                  \
     debug_log(#operation " at " __FILE__ ": %d\n", __LINE__);  \
     operation;                                                 \

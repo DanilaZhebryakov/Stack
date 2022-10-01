@@ -1,6 +1,7 @@
 #define NDEBUG
 
 #include <stdio.h>
+
 #include "Stack.h"
 
 using namespace std;

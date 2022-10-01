@@ -22,6 +22,9 @@ struct VarInfo{
 
 const char* strPrintable(const char* str);
 
+#ifdef varInfoInit
+    #error redefinition of internal macro varInfoInit()
+#endif
 #define varInfoInit(var) {#var, VARSTATUS_UNUSED, __FILE__, __LINE__, __PRETTY_FUNCTION__}
 
 //canary protection

@@ -114,7 +114,7 @@ void dumpData(const void* begin_ptr, size_t max_size){
     printf_log("     Raw data dump: (%ld total) [ ", max_size);
     size_t i = 0;
     while (i < max_size){
-        if(!IsBadReadPtr(begin_ptr + i, 1)){
+        if(!IsBadReadPtr((char*)begin_ptr + i, 1)){
             printf_log("%p ", ((uint8_t*)begin_ptr)[i]);
         }
         else{

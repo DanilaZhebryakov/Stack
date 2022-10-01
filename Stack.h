@@ -58,7 +58,9 @@ enum stackError_t{
     #define STACK_MIN_SIZE 10
 #endif
 
-
+#ifdef stackCheckRet
+    #error redefinition of internal macro stackCheckRet
+#endif
 #ifndef STACK_NO_PROTECT
     #define stackCheckRet(__stk, ...)  \
         if(stackError(__stk)){             \
@@ -70,6 +72,9 @@ enum stackError_t{
     #define stackCheckRet(__stk, ...) ;
 #endif
 
+#ifdef stackCheckRetPtr
+    #error redefinition of internal macro stackCheckRetPtr
+#endif
 #ifndef STACK_NO_PROTECT
     #define stackCheckRetPtr(__stk, __errptr, ...)  \
         if(stackError(__stk)){                \
@@ -113,7 +118,7 @@ struct Stack{
 #endif
 inline static void* stackDataMemBegin(const Stack* stk){
     assert_log(stk != nullptr);
-    return ((void*)stk->data)-STACK_DATA_BEGIN_OFFSET;
+    return ((uint8_t*)stk->data)-STACK_DATA_BEGIN_OFFSET;
 }
 inline static size_t stackDataMemSize(const Stack* stk){
     assert_log(stk != nullptr);
@@ -153,7 +158,12 @@ inline static size_t stackDataMemSize(const Stack* stk){
     }
 #endif
 
-static void stackCtor_(Stack* stk){
+static bool stackCtor_(Stack* stk){
+    #ifndef STACK_NO_PROTECT
+    if(IsBadWritePtr(__stk, sizeof(__stk))){
+        return false;
+    }
+    #endif
     stk->data = nullptr;
     stk->size = 0;
     stk->capacity = 0;
@@ -162,11 +172,14 @@ static void stackCtor_(Stack* stk){
         stk->leftcan  = CANARY_L;
         stk->rightcan = CANARY_R;
     #endif
+    return true;
 }
+#ifdef stackCtor
+    #error redefinition of internal macro stackCtor
+#endif
 #ifndef STACK_NO_PROTECT
     #define stackCtor(__stk)    \
-        if (!IsBadWritePtr(__stk, sizeof(__stk))){  \
-            stackCtor_(__stk);      \
+        if (stackCtor_(__stk);){  \
             (__stk)->info = varInfoInit(__stk); \
             stackUpdHashes(__stk);  \
         }                       \
@@ -184,7 +197,7 @@ static stackError_t stackError(const Stack* stk){
     if (IsBadReadPtr(stk, sizeof(stk)))
         return STACK_BAD;
 
-    if (stk->size == -1 || stk->capacity == -1 || stk->data == DESTRUCT_PTR)
+    if (stk->size == SIZE_MAX || stk->capacity == SIZE_MAX || stk->data == DESTRUCT_PTR)
         return STACK_DEAD;
 
 
@@ -313,7 +326,7 @@ static void stackDump(const Stack* stk){
     #endif
     printf_log("\n");
 
-    for (int i = 0; i < stk->capacity; i++){
+    for (size_t i = 0; i < stk->capacity; i++){
         printf_log("    ");
 
         printf_log("%c", (i < stk->size           ) ? '*':' ');
@@ -328,7 +341,7 @@ static void stackDump(const Stack* stk){
 static stackError_t stackDtor(Stack* stk){
     stackCheckRet(stk, stackError_dbg(stk));
 
-    for (int i = 0; i < stk->capacity; i++){
+    for (size_t i = 0; i < stk->capacity; i++){
         stk->data[i] = BAD_ELEM;
     }
     if(stk->data != nullptr)
@@ -340,6 +353,7 @@ static stackError_t stackDtor(Stack* stk){
     #ifndef STACK_NO_PROTECT
     (stk->info).status = VARSTATUS_DEAD;
     #endif
+    return STACK_NOERROR;
 }
 
 
@@ -360,12 +374,12 @@ static stackError_t stackResize_(Stack* stk, size_t new_capacity){
     ELEM_T* new_mem = nullptr;
     if (stk->data != nullptr){
         new_mem = (ELEM_T*)(
-                            realloc(stackDataMemBegin(stk), new_capacity*sizeof(ELEM_T) + STACK_DATA_SIZE_OFFSET)
+                            (char*)realloc(stackDataMemBegin(stk), new_capacity*sizeof(ELEM_T) + STACK_DATA_SIZE_OFFSET)
                             + STACK_DATA_BEGIN_OFFSET);
     }
     else{
         new_mem = (ELEM_T*)(
-                            calloc(                         new_capacity*sizeof(ELEM_T) +  STACK_DATA_SIZE_OFFSET, 1)
+                            (char*)calloc(                         new_capacity*sizeof(ELEM_T) +  STACK_DATA_SIZE_OFFSET, 1)
                             + STACK_DATA_BEGIN_OFFSET);
     }
     if (new_mem == nullptr){
@@ -454,4 +468,3 @@ static ELEM_T stackPop(Stack* stk, stackError_t *err_ptr = nullptr){
     stackUpdHashes(stk);
     return ret;
 }
-
