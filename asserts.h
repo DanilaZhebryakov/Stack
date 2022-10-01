@@ -1,7 +1,7 @@
 #ifndef ASSERTP_H_INCLUDED
 #define ASSERTP_H_INCLUDED
 
-#define __WHEREAMI__ ("File:" __FILE__ "\nLine:" "__LINE__" "\nFunc:" __PRETTY_FUNCTION__ "\n")
+
 
 #define assert_e(cond) {                                                                                                        \
     if(!(cond)) {                                                                                                               \

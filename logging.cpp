@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdarg.h>
+#include <windows.h>
 
 #include "time_utils.h"
 #include "Console_utils.h"
@@ -108,4 +109,18 @@ void debug_log(const char* format, ...){
     vfprintf( stderr , format , args);
     setConsoleColor(stderr, (consoleColor)(COLOR_WHITE | COLOR_INTENSE), COLOR_BLACK);
     va_end(args);
+}
+void dumpData(const void* begin_ptr, size_t max_size){
+    printf_log("     Raw data dump: (%ld total) [ ", max_size);
+    size_t i = 0;
+    while (i < max_size){
+        if(!IsBadReadPtr(begin_ptr + i, 1)){
+            printf_log("%p ", ((uint8_t*)begin_ptr)[i]);
+        }
+        else{
+            printf_log("|access denied| ");
+        }
+        i++;
+    }
+    printf_log("]\n");
 }
