@@ -160,7 +160,7 @@ inline static size_t stackDataMemSize(const Stack* stk){
 
 static bool stackCtor_(Stack* stk){
     #ifndef STACK_NO_PROTECT
-    if(IsBadWritePtr(__stk, sizeof(__stk))){
+    if (IsBadWritePtr(__stk, sizeof(__stk))){
         return false;
     }
     #endif
@@ -203,7 +203,7 @@ static stackError_t stackError(const Stack* stk){
 
     unsigned int err = 0;
 
-    if(stk->capacity != 0){
+    if (stk->capacity != 0){
         if (stk->data == nullptr)
             err |= STACK_DATA_NULL;
         if (IsBadWritePtr(stackDataMemBegin(stk), stackDataMemSize(stk)))
@@ -317,10 +317,10 @@ static void stackDump(const Stack* stk){
         }
     #endif
     #ifndef STACK_NO_CANARY
-        if(!checkLCanary(stk->data)){
+        if (!checkLCanary(stk->data)){
             printf_log("      (BAD)  Data L canary BAD! Value: %p\n", ((canary_t*)stk->data)[-1]);
         }
-        if(!checkRCanary(stk->data, stk->capacity * sizeof(ELEM_T))){
+        if (!checkRCanary(stk->data, stk->capacity * sizeof(ELEM_T))){
             printf_log("      (BAD)  Data R canary BAD! Value: %p\n",*((canary_t*)stk->data + stk->capacity));
         }
     #endif
@@ -344,7 +344,7 @@ static stackError_t stackDtor(Stack* stk){
     for (size_t i = 0; i < stk->capacity; i++){
         stk->data[i] = BAD_ELEM;
     }
-    if(stk->data != nullptr)
+    if (stk->data != nullptr)
         free(stackDataMemBegin(stk));
 
     stk->data = DESTRUCT_PTR;

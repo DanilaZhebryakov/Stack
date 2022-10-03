@@ -27,7 +27,7 @@
     #ifdef error_log
         #error redefinition of internal macro error_log perror_log
     #endif
-    #define perror_log(errmsg)  {    \
+    #define perror_log(errmsg)  do {    \
         setConsoleColor(stderr, (consoleColor)(COLOR_RED | COLOR_INTENSE), COLOR_BLACK); \
         fprint_time_nodate(_logfile, time(nullptr));                                     \
         fprintf(_logfile, "[ERROR] %s :%s\n at: \nFile:%s \nLine:%d \nFunc:%s\n",        \
@@ -35,7 +35,7 @@
         fprintf(stderr  , "[ERROR] %s :%s\n at: \nFile:%s \nLine:%d \nFunc:%s\n",        \
                   errmsg, strerror(errno), __FILE__, __LINE__, __PRETTY_FUNCTION__);     \
         setConsoleColor(stderr, (consoleColor)(COLOR_WHITE | COLOR_INTENSE), COLOR_BLACK);\
-    }
+    } while(0)
 
     #ifdef error_log
         #error redefinition of internal macro error_log
